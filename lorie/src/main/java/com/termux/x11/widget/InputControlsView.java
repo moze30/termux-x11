@@ -76,11 +76,32 @@ public class InputControlsView extends View {
         setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-        if (preferences.getBoolean("haptics", true)) {
-            vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-            effect = VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE);
+        // 玩家可在偏好里关闭触感反馈；没有 VIBRATE 权限或设备无马达时也必须关闭，
+        // 否则 vibrate() 会抛 SecurityException 让应用在处理触摸时崩溃。
+        if (preferences.getBoolean("haptics", true)
+                && context.checkSelfPermission(android.Manifest.permission.VIBRATE)
+                    == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) {
+                vibrator = v;
+                effect = VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE);
+            } else {
+                vibrator = null;
+            }
         } else {
             vibrator = null;
+        }
+    }
+
+    /** 安全的触感反馈：无权限、无马达或已被禁用时静默跳过，绝不抛出异常。 */
+    private void performHapticFeedback() {
+        if (vibrator == null || effect == null)
+            return;
+        try {
+            vibrator.vibrate(effect);
+        }
+        catch (RuntimeException e) {
+            vibrator = null; // 权限被撤销等情况：关掉反馈，避免每次触摸都崩
         }
     }
 
@@ -390,9 +411,7 @@ public class InputControlsView extends View {
                     touchpadView.setPointerButtonLeftEnabled(true);
                     for (ControlElement element : profile.getElements()) {
                         if (element.handleTouchDown(pointerId, x, y)) {
-                            if (vibrator != null) {
-                                vibrator.vibrate(effect);
-                            }
+                            performHapticFeedback();
                             handled = true;
                         }
                         if (element.getBindingAt(0) == Binding.MOUSE_LEFT_BUTTON) {
