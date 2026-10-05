@@ -205,4 +205,7 @@
     <string name="lorie_dialog_extra_keys_config_title">附加按键配置</string>
     <string name="lorie_side_panel_edit_profile">编辑</string>
     <string name="lorie_side_panel_disabled">禁用</string>
+    <string name="lorie_pref_haptics">按键震动</string>
+    <string name="lorie_pref_haptics_summary">按下虚拟控件时震动反馈</string>
+    <string name="lorie_side_panel_haptics">按键震动</string>
 </resources>

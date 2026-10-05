@@ -905,6 +905,14 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             });
 
+        bindSidePanelSwitch(R.id.switch_haptics, () -> prefs.haptics.get(),
+                checked -> {
+                    prefs.haptics.put(checked);
+                    // 立即对已创建的控件视图生效，无需重进界面
+                    if (mInputControlsView != null)
+                        mInputControlsView.setHapticsEnabled(checked);
+                });
+
         bindSidePanelSwitch(R.id.switch_fullscreen, () -> prefs.fullscreen.get(),
                 checked -> prefs.fullscreen.put(checked));
 
@@ -941,6 +949,7 @@ public class MainActivity extends AppCompatActivity {
         setSwitchSilently(R.id.switch_additional_kbd, prefs.showAdditionalKbd.get() && prefs.additionalKbdVisible.get());
         setSwitchSilently(R.id.switch_mouse_helper, prefs.showMouseHelper.get());
         setSwitchSilently(R.id.switch_stylus_helper, prefs.showStylusClickOverride.get());
+        setSwitchSilently(R.id.switch_haptics, prefs.haptics.get());
         setSwitchSilently(R.id.switch_fullscreen, prefs.fullscreen.get());
         syncControlsProfileSpinner();
         mSidePanelSyncing = false;

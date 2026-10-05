@@ -76,21 +76,31 @@ public class InputControlsView extends View {
         setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-        // 玩家可在偏好里关闭触感反馈；没有 VIBRATE 权限或设备无马达时也必须关闭，
+        // 玩家可在偏好/侧边栏关闭触感反馈；没有 VIBRATE 权限或设备无马达时也必须关闭，
         // 否则 vibrate() 会抛 SecurityException 让应用在处理触摸时崩溃。
-        if (preferences.getBoolean("haptics", true)
-                && context.checkSelfPermission(android.Manifest.permission.VIBRATE)
-                    == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-            if (v != null && v.hasVibrator()) {
-                vibrator = v;
-                effect = VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE);
-            } else {
-                vibrator = null;
-            }
-        } else {
+        applyHapticsEnabled(preferences.getBoolean("haptics", true));
+
+        if (vibrator != null)
+            effect = VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE);
+    }
+
+    /** 供侧边栏等外部调用，实时开关触感反馈。 */
+    public void setHapticsEnabled(boolean enabled) {
+        applyHapticsEnabled(enabled);
+        if (vibrator != null && effect == null)
+            effect = VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE);
+    }
+
+    /** 依开关、VIBRATE 权限与设备马达能力决定是否启用反馈。 */
+    private void applyHapticsEnabled(boolean enabled) {
+        if (!enabled
+                || getContext().checkSelfPermission(android.Manifest.permission.VIBRATE)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             vibrator = null;
+            return;
         }
+        Vibrator v = (Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+        vibrator = (v != null && v.hasVibrator()) ? v : null;
     }
 
     /** 安全的触感反馈：无权限、无马达或已被禁用时静默跳过，绝不抛出异常。 */

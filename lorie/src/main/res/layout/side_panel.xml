@@ -120,6 +120,15 @@
                     android:textSize="13sp" />
             </LinearLayout>
 
+            <Switch
+                android:id="@+id/switch_haptics"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/lorie_side_panel_haptics"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp" />
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"

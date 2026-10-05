@@ -200,4 +200,7 @@ E.g. <b>META</b> for <i>META key</i>, \n
     <string name="lorie_dialog_extra_keys_config_title">Extra keys config</string>
     <string name="lorie_side_panel_edit_profile">Edit</string>
     <string name="lorie_side_panel_disabled">Disabled</string>
+    <string name="lorie_pref_haptics">Vibration feedback</string>
+    <string name="lorie_pref_haptics_summary">Vibrate when an input control is pressed</string>
+    <string name="lorie_side_panel_haptics">Vibration</string>
 </resources>
