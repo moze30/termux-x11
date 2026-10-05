@@ -838,7 +838,11 @@ public class MainActivity extends AppCompatActivity {
 
         Button softKbdBtn = mSidePanel.findViewById(R.id.button_soft_keyboard);
         if (softKbdBtn != null)
-            softKbdBtn.setOnClickListener(v -> toggleKeyboardVisibility());
+            softKbdBtn.setOnClickListener(v -> {
+                // 先收起侧边栏，避免面板遮住刚弹起的键盘
+                toggleSidePanel(false);
+                mSidePanel.postDelayed(this::toggleKeyboardVisibility, 220);
+            });
 
         bindSidePanelSwitch(R.id.switch_additional_kbd, () -> prefs.showAdditionalKbd.get(),
                 checked -> {
