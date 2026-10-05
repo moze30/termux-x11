@@ -50,19 +50,26 @@ public class InputControlsManager {
         return profiles;
     }
 
+    /**
+     * 内置方案资源版本。凡改动 {@code assets/inputcontrols/profiles} 里的默认方案
+     * （新增、改名、调整按键）都需递增，已安装的应用才会在下一次启动时导入。
+     *
+     * <p>不用应用 versionCode 做门禁：同版本重装时 versionCode 不变，新预设将永远导不进来。
+     */
+    private static final int ASSET_PROFILES_REVISION = 2;
+
     private void copyAssetProfilesIfNeeded() {
         File profilesDir = InputControlsManager.getProfilesDir(context);
         if (FileUtils.isEmpty(profilesDir)) {
+            // 首次安装：整目录复制
             FileUtils.copy(context, "inputcontrols/profiles", profilesDir);
             return;
         }
 
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-
-        int newVersion = AppUtils.getVersionCode(context);
-        int oldVersion = preferences.getInt("inputcontrols_app_version", 0);
-        if (oldVersion == newVersion) return;
-        preferences.edit().putInt("inputcontrols_app_version", newVersion).apply();
+        int oldRevision = preferences.getInt("inputcontrols_assets_revision", 0);
+        if (oldRevision >= ASSET_PROFILES_REVISION) return;
+        preferences.edit().putInt("inputcontrols_assets_revision", ASSET_PROFILES_REVISION).apply();
 
         File[] files = profilesDir.listFiles();
         if (files == null) return;
@@ -70,22 +77,33 @@ public class InputControlsManager {
         try {
             AssetManager assetManager = context.getAssets();
             String[] assetFiles = assetManager.list("inputcontrols/profiles");
-            for (String assetFile : assetFiles) {
-                String assetPath = "inputcontrols/profiles/"+assetFile;
-                ControlsProfile originProfile = loadProfile(context, assetManager.open(assetPath));
+            if (assetFiles == null) return;
 
-                File targetFile = null;
+            for (String assetFile : assetFiles) {
+                String assetPath = "inputcontrols/profiles/" + assetFile;
+                ControlsProfile originProfile = loadProfile(context, assetManager.open(assetPath));
+                if (originProfile == null) continue;
+
+                File sameIdFile = null;
+                File sameNameFile = null;
                 for (File file : files) {
                     ControlsProfile targetProfile = loadProfile(context, file);
-                    if (originProfile.id == targetProfile.id && originProfile.getName().equals(targetProfile.getName())) {
-                        targetFile = file;
-                        break;
-                    }
+                    if (targetProfile == null) continue;
+                    if (originProfile.id == targetProfile.id) sameIdFile = file;
+                    if (originProfile.getName().equals(targetProfile.getName())) sameNameFile = file;
                 }
 
-                if (targetFile != null) {
-                    FileUtils.copy(context, assetPath, targetFile);
+                if (sameIdFile != null && sameIdFile.equals(sameNameFile)) {
+                    // 同 id 同名：属于内置预设，随资源更新覆盖
+                    FileUtils.copy(context, assetPath, sameIdFile);
                 }
+                else if (sameIdFile == null && sameNameFile == null) {
+                    // 全新预设：按 controls-{id}.icp 落盘，与 ControlsProfile#getProfileFile 保持一致
+                    File dst = ControlsProfile.getProfileFile(context, originProfile.id);
+                    if (!dst.exists())
+                        FileUtils.copy(context, assetPath, dst);
+                }
+                // 其余情况（用户改过名或 id 已被占用）保持用户数据不动
             }
         }
         catch (IOException e) {}
