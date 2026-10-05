@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 仅作 entries（显示用）的数组，可安全翻译 -->
+    <string-array name="touchscreenInputModesEntries">
+        <item>触摸板</item>
+        <item>模拟触摸屏</item>
+        <item>直接触摸</item>
+    </string-array>
+
+    <string-array name="screenIdleTimeoutEntries">
+        <item>从不（保持屏幕常亮）</item>
+        <item>1 分钟</item>
+        <item>5 分钟</item>
+        <item>10 分钟</item>
+        <item>20 分钟</item>
+        <item>1 小时</item>
+        <item>系统</item>
+    </string-array>
+
+    <string-array name="transformCapturedPointerEntries">
+        <item>不转换</item>
+        <item>顺时针</item>
+        <item>逆时针</item>
+        <item>上下颠倒</item>
+        <item>自动（用于触摸板）</item>
+    </string-array>
+
+    <!-- 拆分出来的显示数组；原数组仍是 entryValues，保持英文原值不动 -->
+    <string-array name="displayResolutionModeEntries">
+        <item>原生</item>
+        <item>缩放</item>
+        <item>精确</item>
+        <item>自定义</item>
+    </string-array>
+
+    <string-array name="displayFilteringModeEntries">
+        <item>双线性</item>
+        <item>最近邻</item>
+    </string-array>
+
+    <string-array name="forceOrientationEntries">
+        <item>自动</item>
+        <item>竖屏</item>
+        <item>横屏</item>
+        <item>反向竖屏</item>
+        <item>反向横屏</item>
+    </string-array>
+
+    <string-array name="ekbarPositionEntries">
+        <item>顶部</item>
+        <item>底部</item>
+        <item>左侧</item>
+        <item>右侧</item>
+    </string-array>
+
+    <string-array name="userActionsEntries">
+        <item>无操作</item>
+        <item>切换软键盘</item>
+        <item>切换附加按键栏</item>
+        <item>打开设置</item>
+        <item>释放指针和键盘捕获</item>
+        <item>切换全屏</item>
+        <item>重启界面</item>
+        <item>退出</item>
+    </string-array>
+
+    <string-array name="userActionsVolumeDownEntries">
+        <item>@array/userActionsEntries</item>
+        <item>发送音量下键</item>
+    </string-array>
+
+    <string-array name="userActionsVolumeUpEntries">
+        <item>@array/userActionsEntries</item>
+        <item>发送音量上键</item>
+    </string-array>
+
+    <string-array name="userActionsMediaKeyEntries">
+        <item>@array/userActionsEntries</item>
+        <item>发送媒体动作</item>
+    </string-array>
+
+    <string-array name="binding_type_entries">
+        <item>键盘</item>
+        <item>鼠标</item>
+        <item>手柄</item>
+    </string-array>
+</resources>

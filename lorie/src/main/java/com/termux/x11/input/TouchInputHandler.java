@@ -107,7 +107,7 @@ public class TouchInputHandler {
 
     private final BiConsumer<Integer, Boolean> noAction = (key, down) -> {};
     private BiConsumer<Integer, Boolean> swipeUpAction = noAction, swipeDownAction = noAction,
-            volumeUpAction = noAction, volumeDownAction = noAction, backButtonAction = noAction,
+            volumeUpAction = noAction, volumeDownAction = noAction,
             mediaKeysAction = noAction;
 
     private static final int KEY_BACK = 158;
@@ -499,7 +499,6 @@ public class TouchInputHandler {
         swipeDownAction = extractUserActionFromPreferences(p, "swipeDown");
         volumeUpAction = extractUserActionFromPreferences(p, "volumeUp");
         volumeDownAction = extractUserActionFromPreferences(p, "volumeDown");
-        backButtonAction = extractUserActionFromPreferences(p, "backButton");
         mediaKeysAction = extractUserActionFromPreferences(p, "mediaKeys");
 
         ignoreGamepadEvents = p.ignoreGamepadEvents.get();
@@ -983,7 +982,9 @@ public class TouchInputHandler {
             }
 
             if (e.getScanCode() == KEY_BACK && e.getDevice().getKeyboardType() != KEYBOARD_TYPE_ALPHABETIC || e.getScanCode() == 0) {
-                backButtonAction.accept(k, e.getAction() == KeyEvent.ACTION_DOWN);
+                // 返回键固定用于呼出/收起侧边栏，不再跟随 backButtonAction 偏好设置
+                if (e.getRepeatCount() == 0 && e.getAction() == KeyEvent.ACTION_DOWN)
+                    mActivity.toggleSidePanel();
                 return true;
             }
         }

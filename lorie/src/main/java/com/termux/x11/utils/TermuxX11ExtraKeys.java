@@ -19,6 +19,7 @@ import androidx.annotation.NonNull;
 
 import com.termux.x11.extrakeys.*;
 import com.termux.x11.LoriePreferences;
+import com.termux.x11.R;
 import com.termux.x11.MainActivity;
 
 import org.json.JSONException;
@@ -208,13 +209,13 @@ public class TermuxX11ExtraKeys implements ExtraKeysView.IExtraKeysView {
             String extrakeys = mActivity.prefs.extra_keys_config.get();
             mExtraKeysInfo = new ExtraKeysInfo(extrakeys, "extra-keys-style", ExtraKeysConstants.CONTROL_CHARS_ALIASES);
         } catch (JSONException e) {
-            Toast.makeText(mActivity, "Could not load and set the \"extra-keys\" property from the properties file: " + e, Toast.LENGTH_LONG).show();
+            Toast.makeText(mActivity, mActivity.getString(R.string.lorie_toast_extra_keys_load_failed, String.valueOf(e)), Toast.LENGTH_LONG).show();
             Log.e(LOG_TAG, "Could not load and set the \"extra-keys\" property from the properties file: ", e);
 
             try {
                 mExtraKeysInfo = new ExtraKeysInfo(TermuxX11ExtraKeys.DEFAULT_IVALUE_EXTRA_KEYS, "default", ExtraKeysConstants.CONTROL_CHARS_ALIASES);
             } catch (JSONException e2) {
-                Toast.makeText(mActivity, "Can't create default extra keys", Toast.LENGTH_LONG).show();
+                Toast.makeText(mActivity, R.string.lorie_toast_extra_keys_default_failed, Toast.LENGTH_LONG).show();
                 Log.e(LOG_TAG, "Could create default extra keys: ", e);
                 mExtraKeysInfo = null;
             }

@@ -451,12 +451,18 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
             if (p.getKey() == null)
                 return super.onPreferenceTreeClick(p);
 
+            if ("openInputControls".contentEquals(p.getKey())) {
+                Context ctx = getContext();
+                if (ctx != null) ctx.startActivity(new Intent(ctx, InputControlsActivity.class));
+                return true;
+            }
+
             if ("version".contentEquals(p.getKey())) {
                 Context ctx = getContext();
                 if (ctx != null) {
                     ((ClipboardManager) ctx.getSystemService(Context.CLIPBOARD_SERVICE))
                             .setPrimaryClip(ClipData.newPlainText(p.getSummary(), p.getSummary()));
-                    Toast.makeText(ctx, "Copied to clipboard", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ctx, R.string.lorie_toast_copied_to_clipboard, Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -495,7 +501,7 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
                     if (width <= 0 || height <= 0)
                         throw new NumberFormatException();
                 } catch (NumberFormatException | PatternSyntaxException ignored) {
-                    Toast.makeText(getActivity(), "Wrong resolution format", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getActivity(), R.string.lorie_toast_wrong_resolution_format, Toast.LENGTH_SHORT).show();
                     return false;
                 }
             }
@@ -508,11 +514,9 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
                     KeyInterceptor.shutdown(false);
                 if (requireContext().checkSelfPermission(WRITE_SECURE_SETTINGS) != PERMISSION_GRANTED) {
                     new AlertDialog.Builder(requireContext())
-                            .setTitle("Permission denied")
-                            .setMessage("Android requires WRITE_SECURE_SETTINGS permission to start accessibility service automatically.\n" +
-                                    "Please, launch this command using ADB:\n" +
-                                    "adb shell pm grant " + requireContext().getPackageName() + " android.permission.WRITE_SECURE_SETTINGS")
-                            .setNegativeButton("OK", null)
+                            .setTitle(R.string.lorie_dialog_permission_denied)
+                            .setMessage(getString(R.string.lorie_dialog_write_secure_settings_message, requireContext().getPackageName()))
+                            .setNegativeButton(R.string.lorie_dialog_ok, null)
                             .create()
                             .show();
                     return false;
@@ -542,16 +546,16 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
                 desc.setMovementMethod(LinkMovementMethod.getInstance());
                 new android.app.AlertDialog.Builder(getActivity())
                         .setView(view)
-                        .setTitle("Extra keys config")
-                        .setPositiveButton("OK",
+                        .setTitle(R.string.lorie_dialog_extra_keys_config_title)
+                        .setPositiveButton(R.string.lorie_dialog_ok,
                                 (dialog, whichButton) -> {
                                     String text = config.getText().toString();
                                     prefs.extra_keys_config.put(!text.isEmpty() ? text : TermuxX11ExtraKeys.DEFAULT_IVALUE_EXTRA_KEYS);
                                 }
                         )
-                        .setNeutralButton("Reset",
+                        .setNeutralButton(R.string.lorie_dialog_reset,
                                 (dialog, whichButton) -> prefs.extra_keys_config.put(TermuxX11ExtraKeys.DEFAULT_IVALUE_EXTRA_KEYS))
-                        .setNegativeButton("Cancel", (dialog, whichButton) -> dialog.dismiss())
+                        .setNegativeButton(R.string.lorie_dialog_cancel, (dialog, whichButton) -> dialog.dismiss())
                         .create()
                         .show();
             } else super.onDisplayPreferenceDialog(preference);

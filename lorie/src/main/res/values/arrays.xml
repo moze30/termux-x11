@@ -113,4 +113,65 @@
         <item>left</item>
         <item>right</item>
     </string-array>
+    <string-array name="binding_type_entries">
+        <item>Keyboard</item>
+        <item>Mouse</item>
+        <item>Gamepad</item>
+    </string-array>
+
+    <!-- ===== 以下 *Entries 仅用于显示，可被本地化覆盖 ===== -->
+    <!-- 对应 entryValues 仍用上面的原数组（英文原值），绝不可翻译，否则设置项读不回原值 -->
+
+    <string-array name="displayResolutionModeEntries">
+        <item>Native</item>
+        <item>Scaled</item>
+        <item>Exact</item>
+        <item>Custom</item>
+    </string-array>
+
+    <string-array name="displayFilteringModeEntries">
+        <item>Bilinear</item>
+        <item>Nearest</item>
+    </string-array>
+
+    <string-array name="forceOrientationEntries">
+        <item>Auto</item>
+        <item>Portrait</item>
+        <item>Landscape</item>
+        <item>Reverse portrait</item>
+        <item>Reverse landscape</item>
+    </string-array>
+
+    <string-array name="ekbarPositionEntries">
+        <item>Top</item>
+        <item>Bottom</item>
+        <item>Left</item>
+        <item>Right</item>
+    </string-array>
+
+    <string-array name="userActionsEntries">
+        <item>No action</item>
+        <item>Toggle soft keyboard</item>
+        <item>Toggle additional key bar</item>
+        <item>Open preferences</item>
+        <item>Release pointer and keyboard capture</item>
+        <item>Toggle fullscreen</item>
+        <item>Restart activity</item>
+        <item>Exit</item>
+    </string-array>
+
+    <string-array name="userActionsVolumeDownEntries">
+        <item>@array/userActionsEntries</item>
+        <item>Send volume down</item>
+    </string-array>
+
+    <string-array name="userActionsVolumeUpEntries">
+        <item>@array/userActionsEntries</item>
+        <item>Send volume up</item>
+    </string-array>
+
+    <string-array name="userActionsMediaKeyEntries">
+        <item>@array/userActionsEntries</item>
+        <item>Send media action</item>
+    </string-array>
 </resources>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  侧边栏（左侧滑出）
+  - 宽度与方向由 MainActivity#applySidePanelLayout 实时计算
+  - 内容区可上下滚动；「全部设置 / 收起」固定在底部
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/side_panel"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:layout_gravity="start"
+    android:orientation="vertical"
+    android:visibility="gone"
+    android:background="#E6000000"
+    android:padding="10dp"
+    android:clickable="true"
+    android:focusable="true">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/lorie_side_panel_title"
+        android:textColor="#FFFFFF"
+        android:textSize="17sp"
+        android:textStyle="bold"
+        android:paddingBottom="8dp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#55FFFFFF"
+        android:layout_marginBottom="8dp" />
+
+    <!-- 内容区：上下滚动 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:scrollbars="vertical"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- 软键盘：按键，按一次弹起 -->
+            <Button
+                android:id="@+id/button_soft_keyboard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/lorie_side_panel_soft_keyboard"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_additional_kbd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/lorie_side_panel_additional_kbd"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_mouse_helper"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/lorie_side_panel_mouse_helper"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_stylus_helper"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/lorie_side_panel_stylus_helper"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#55FFFFFF"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp" />
+
+            <!-- 输入控件：方案选择 + 编辑 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/lorie_side_panel_input_controls"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:paddingBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Spinner
+                    android:id="@+id/spinner_controls_profile"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="44dp" />
+
+                <Button
+                    android:id="@+id/button_edit_controls_profile"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:text="@string/lorie_side_panel_edit_profile"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#55FFFFFF"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp" />
+
+            <Switch
+                android:id="@+id/switch_fullscreen"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/lorie_side_panel_fullscreen"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 底部固定按钮 -->
+    <Button
+        android:id="@+id/side_panel_preferences"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/lorie_side_panel_more_settings" />
+
+    <Button
+        android:id="@+id/side_panel_close"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/lorie_side_panel_close" />
+</LinearLayout>

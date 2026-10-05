@@ -50,11 +50,14 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.Switch;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
@@ -65,6 +68,13 @@ import androidx.core.view.ViewCompat;
 import androidx.viewpager.widget.ViewPager;
 
 import com.termux.x11.extrakeys.ExtraKeysInfo;
+import com.termux.x11.inputcontrols.ControlsProfile;
+import com.termux.x11.inputcontrols.InputControlsManager;
+import com.termux.x11.widget.InputControlsView;
+import com.termux.x11.widget.TouchpadView;
+import com.termux.x11.xserverbridge.IXServerBridge;
+import com.termux.x11.xserverbridge.TX11XServerBridge;
+import com.termux.x11.core.PreloaderDialog;
 import com.termux.x11.input.InputEventSender;
 import com.termux.x11.input.InputStub;
 import com.termux.x11.input.TouchInputHandler;
@@ -73,6 +83,7 @@ import com.termux.x11.utils.KeyInterceptor;
 import com.termux.x11.utils.TermuxX11ExtraKeys;
 import com.termux.x11.utils.X11ToolbarViewPager;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
 
@@ -81,6 +92,8 @@ import java.util.Objects;
 public class MainActivity extends AppCompatActivity {
     public static final String ACTION_STOP = "com.termux.x11.ACTION_STOP";
     public static final String ACTION_CUSTOM = "com.termux.x11.ACTION_CUSTOM";
+    public static final byte OPEN_FILE_REQUEST_CODE = 2;
+    public PreloaderDialog preloaderDialog;
 
     public static Handler handler = new Handler();
     private final Runnable connectRetry = this::tryConnect;
@@ -95,6 +108,20 @@ public class MainActivity extends AppCompatActivity {
     private boolean filterOutWinKey = false;
     boolean useTermuxEKBarBehaviour = false;
     private boolean isInPictureInPictureMode = false;
+
+    /* ===== 虚拟控件（移植自 winlator-glibc）===== */
+    private InputControlsManager mInputControlsManager;
+    private InputControlsView mInputControlsView;
+    private TouchpadView mTouchpadView;
+    private TX11XServerBridge mXServerBridge;
+
+    /* ===== 侧边栏（实时设置）===== */
+    private View mSidePanel;
+    private boolean mSidePanelShown = false;
+    private boolean mSidePanelSyncing = false;
+    private long mLastSidePanelToggle = 0L;
+    private Spinner mControlsProfileSpinner;
+    private float mGlobalCursorSpeed = 1.0f;
     /** The display the system letterboxed us on instead of rotating, {@code null} until it does. */
     private Rect orientationDeniedAt = null;
     private String screenIdleTimeoutArmedMode = null; // numeric screenIdleTimeout mode the pending idle check reflects, or null if none pending
@@ -243,6 +270,8 @@ public class MainActivity extends AppCompatActivity {
 
         initStylusAuxButtons();
         initMouseAuxButtons();
+        initVirtualControls();
+        initSidePanel();
 
         if (SDK_INT >= VERSION_CODES.TIRAMISU
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PERMISSION_GRANTED
@@ -668,6 +697,343 @@ public class MainActivity extends AppCompatActivity {
         app.onActivityPaused();
     }
 
+    /* ===================== 虚拟控件（移植自 winlator-glibc）===================== */
+
+    /**
+     * 初始化虚拟控件：桥接层 + 触摸板 + 控件覆盖层。
+     *
+     * <p>层级顺序（自下而上）：LorieView（X 画面） → TouchpadView（指针/手势） → InputControlsView（虚拟按键）。
+     * InputControlsView 未命中的触摸会转发给 TouchpadView，因此两者必须成对挂载。
+     */
+    void initVirtualControls() {
+        LorieView lorieView = getLorieView();
+        ViewGroup parent = (ViewGroup) frm.getParent();
+
+        mXServerBridge = new TX11XServerBridge(lorieView);
+
+        mTouchpadView = new TouchpadView(this, mXServerBridge);
+        mTouchpadView.setVisibility(View.GONE);
+        parent.addView(mTouchpadView);
+
+        mInputControlsView = new InputControlsView(this);
+        mInputControlsView.setXServer(mXServerBridge);
+        mInputControlsView.setTouchpadView(mTouchpadView);
+        mInputControlsView.setOverlayOpacity(InputControlsView.DEFAULT_OVERLAY_OPACITY);
+        mInputControlsView.setVisibility(View.GONE);
+        parent.addView(mInputControlsView);
+
+        mInputControlsManager = new InputControlsManager(this);
+        mGlobalCursorSpeed = 1.0f; // 方案自带 cursorSpeed，全局系数暂固定为 1
+        showVirtualControls(lorieView.connected());
+    }
+
+    /**
+     * 依连接状态与已选方案决定控件是否可见。
+     * 对应 winlator 里的 showInputControls / hideInputControls 一对函数。
+     */
+    void showVirtualControls(boolean connected) {
+        if (mInputControlsView == null)
+            return;
+        boolean wantShow = connected && prefs.showInputControls.get();
+        ControlsProfile profile = null;
+        if (wantShow) {
+            int id = prefs.activeControlsProfile.get();
+            if (id > 0) profile = mInputControlsManager.getProfile(id);
+            wantShow = profile != null;
+        }
+        if (profile != null)
+            showInputControls(profile);
+        else
+            hideInputControls();
+    }
+
+    /** 启用并切换到指定方案（照搬 winlator 实现，含触摸板灵敏度跟随）。 */
+    void showInputControls(ControlsProfile profile) {
+        if (mInputControlsView == null || profile == null)
+            return;
+        mInputControlsView.setVisibility(View.VISIBLE);
+        mInputControlsView.requestFocus();
+        mInputControlsView.setProfile(profile);
+        if (mTouchpadView != null) {
+            mTouchpadView.setVisibility(View.VISIBLE);
+            mTouchpadView.setSensitivity(profile.getCursorSpeed() * mGlobalCursorSpeed);
+            mTouchpadView.setPointerButtonRightEnabled(true);
+        }
+        // IntPreference 没有 setter，直接写 SharedPreferences
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(this).edit()
+                .putInt("activeControlsProfile", profile.id).apply();
+        prefs.showInputControls.put(true);
+        mInputControlsView.invalidate();
+        syncControlsProfileSpinner();
+    }
+
+    /** 关闭虚拟控件（照搬 winlator 的 hideInputControls）。 */
+    void hideInputControls() {
+        if (mInputControlsView == null)
+            return;
+        mInputControlsView.setShowTouchscreenControls(true);
+        mInputControlsView.setVisibility(View.GONE);
+        mInputControlsView.setProfile(null);
+        if (mTouchpadView != null) {
+            mTouchpadView.setVisibility(View.GONE);
+            mTouchpadView.setSensitivity(mGlobalCursorSpeed);
+            mTouchpadView.setPointerButtonLeftEnabled(true);
+            mTouchpadView.setPointerButtonRightEnabled(true);
+        }
+        prefs.showInputControls.put(false);
+        mInputControlsView.invalidate();
+    }
+
+    /** 侧边栏的方案下拉：第一项为「禁用」，其余为各方案。 */
+    void loadControlsProfileSpinner() {
+        if (mControlsProfileSpinner == null)
+            return;
+        ArrayList<ControlsProfile> profiles = mInputControlsManager.getProfiles();
+        ArrayList<String> items = new ArrayList<>();
+        items.add("-- " + getString(R.string.lorie_side_panel_disabled) + " --");
+        for (ControlsProfile profile : profiles)
+            items.add(profile.getName());
+        mControlsProfileSpinner.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_dropdown_item, items));
+        syncControlsProfileSpinner();
+    }
+
+    /** 把当前生效的方案在 Spinner 上选中。 */
+    void syncControlsProfileSpinner() {
+        if (mControlsProfileSpinner == null)
+            return;
+        ArrayList<ControlsProfile> profiles = mInputControlsManager.getProfiles();
+        int selected = 0;
+        if (mInputControlsView != null && mInputControlsView.getProfile() != null) {
+            int activeId = mInputControlsView.getProfile().id;
+            for (int i = 0; i < profiles.size(); i++) {
+                if (profiles.get(i).id == activeId) { selected = i + 1; break; }
+            }
+        }
+        mControlsProfileSpinner.setSelection(selected, false);
+    }
+
+    public InputControlsView getInputControlsView() {
+        return mInputControlsView;
+    }
+
+    public IXServerBridge getXServerBridge() {
+        return mXServerBridge;
+    }
+
+    public void toggleInputControls() {
+        boolean show = mInputControlsView == null || mInputControlsView.getVisibility() != View.VISIBLE;
+        prefs.showInputControls.put(show);
+        showVirtualControls(show);
+    }
+
+    /* ===================== 侧边栏（实时设置） ===================== */
+
+    void initSidePanel() {
+        mSidePanel = findViewById(R.id.side_panel);
+        if (mSidePanel == null)
+            return;
+
+        applySidePanelLayout();
+
+        Button softKbdBtn = mSidePanel.findViewById(R.id.button_soft_keyboard);
+        if (softKbdBtn != null)
+            softKbdBtn.setOnClickListener(v -> toggleKeyboardVisibility());
+
+        bindSidePanelSwitch(R.id.switch_additional_kbd, () -> prefs.showAdditionalKbd.get(),
+                checked -> {
+                    prefs.showAdditionalKbd.put(checked);
+                    if (checked) prefs.additionalKbdVisible.put(true);
+                    setTerminalToolbarView();
+                });
+
+        bindSidePanelSwitch(R.id.switch_mouse_helper, () -> prefs.showMouseHelper.get(),
+                checked -> {
+                    prefs.showMouseHelper.put(checked);
+                    showMouseAuxButtons(checked);
+                });
+
+        bindSidePanelSwitch(R.id.switch_stylus_helper, () -> prefs.showStylusClickOverride.get(),
+                checked -> {
+                    prefs.showStylusClickOverride.put(checked);
+                    showStylusAuxButtons(checked);
+                });
+
+        mControlsProfileSpinner = mSidePanel.findViewById(R.id.spinner_controls_profile);
+        if (mControlsProfileSpinner != null) {
+            loadControlsProfileSpinner();
+            mControlsProfileSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                    if (mSidePanelSyncing)
+                        return;
+                    if (position == 0) {
+                        hideInputControls();
+                    } else {
+                        ArrayList<ControlsProfile> profiles = mInputControlsManager.getProfiles();
+                        if (position - 1 < profiles.size())
+                            showInputControls(profiles.get(position - 1));
+                    }
+                }
+
+                @Override
+                public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+            });
+        }
+
+        Button editBtn = mSidePanel.findViewById(R.id.button_edit_controls_profile);
+        if (editBtn != null)
+            editBtn.setOnClickListener(v -> {
+                int id = 0;
+                if (mInputControlsView != null && mInputControlsView.getProfile() != null) {
+                    id = mInputControlsView.getProfile().id;
+                } else {
+                    ArrayList<ControlsProfile> profiles = mInputControlsManager.getProfiles();
+                    if (!profiles.isEmpty()) id = profiles.get(0).id;
+                }
+                if (id <= 0) {
+                    android.widget.Toast.makeText(this, R.string.no_profile_selected,
+                            android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Intent intent = new Intent(this, ControlsEditorActivity.class);
+                intent.putExtra("profile_id", id);
+                startActivity(intent);
+            });
+
+        bindSidePanelSwitch(R.id.switch_fullscreen, () -> prefs.fullscreen.get(),
+                checked -> prefs.fullscreen.put(checked));
+
+        View prefsBtn = mSidePanel.findViewById(R.id.side_panel_preferences);
+        if (prefsBtn != null)
+            prefsBtn.setOnClickListener(v -> startActivity(
+                    new Intent(this, LoriePreferences.class) {{ setAction(Intent.ACTION_MAIN); }}));
+
+        View closeBtn = mSidePanel.findViewById(R.id.side_panel_close);
+        if (closeBtn != null)
+            closeBtn.setOnClickListener(v -> toggleSidePanel(false));
+
+    }
+
+    private void bindSidePanelSwitch(int id, java.util.function.BooleanSupplier current,
+                                     java.util.function.Consumer<Boolean> onChange) {
+        Switch sw = mSidePanel.findViewById(id);
+        if (sw == null)
+            return;
+        sw.setChecked(current.getAsBoolean());
+        sw.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (mSidePanelSyncing)
+                return;
+            onChange.accept(isChecked);
+            syncSidePanelState();
+        });
+    }
+
+    /** 把当前真实状态同步进侧边栏开关。 */
+    public void syncSidePanelState() {
+        if (mSidePanel == null)
+            return;
+        mSidePanelSyncing = true;
+        setSwitchSilently(R.id.switch_additional_kbd, prefs.showAdditionalKbd.get() && prefs.additionalKbdVisible.get());
+        setSwitchSilently(R.id.switch_mouse_helper, prefs.showMouseHelper.get());
+        setSwitchSilently(R.id.switch_stylus_helper, prefs.showStylusClickOverride.get());
+        setSwitchSilently(R.id.switch_fullscreen, prefs.fullscreen.get());
+        syncControlsProfileSpinner();
+        mSidePanelSyncing = false;
+    }
+
+    private void setSwitchSilently(int id, boolean checked) {
+        Switch sw = mSidePanel.findViewById(id);
+        if (sw != null && sw.isChecked() != checked)
+            sw.setChecked(checked);
+    }
+
+    /**
+     * 按当前屏幕方向分别计算侧边栏尺寸。
+     *
+     * <p>必须在这里算而不能只靠 values-land：{@code MainActivity} 声明了
+     * {@code configChanges=orientation|screenSize}，转屏时 Activity 不重建，
+     * 已膨胀的视图不会重新解析 dimen，横屏下会保留竖屏高度导致铺满整屏。
+     */
+    /**
+     * 按当前屏幕方向分别计算侧边栏宽度。
+     *
+     * <p>必须在这里算而不能只靠 values-land：{@code MainActivity} 声明了
+     * {@code configChanges=orientation|screenSize}，转屏时 Activity 不重建，
+     * 已膨胀的视图不会重新解析 dimen，横屏下会保留竖屏宽度。
+     *
+     * <p>高度固定 match_parent（左侧栏贯穿全高），内容靠 ScrollView 上下滚动。
+     */
+    void applySidePanelLayout() {
+        if (mSidePanel == null)
+            return;
+
+        boolean landscape = getResources().getConfiguration().orientation
+                == Configuration.ORIENTATION_LANDSCAPE;
+
+        View lorie = getLorieView();
+        int availW = lorie != null && lorie.getWidth() > 0
+                ? lorie.getWidth()
+                : getResources().getDisplayMetrics().widthPixels;
+
+        // 竖屏约占 78% 宽；横屏屏幕宽，约占 34% 且不超过 380dp，避免喧宾夺主
+        float ratio = landscape ? 0.34f : 0.78f;
+        int width = Math.round(availW * ratio);
+        if (landscape) {
+            float maxDp = 380f * getResources().getDisplayMetrics().density;
+            width = Math.min(width, Math.round(maxDp));
+        }
+
+        ViewGroup.LayoutParams lp = mSidePanel.getLayoutParams();
+        if (lp != null && lp.width != width) {
+            lp.width = width;
+            mSidePanel.setLayoutParams(lp);
+        }
+
+        // 收起状态下让面板停在屏幕左侧之外（向左移出 = 负值）
+        if (!mSidePanelShown)
+            mSidePanel.setTranslationX(-width);
+    }
+
+    public boolean isSidePanelShown() {
+        return mSidePanelShown;
+    }
+
+    public void toggleSidePanel() {
+        // 返回键可能同时走按键路径与 onBackPressed，防抖避免"开了又关"
+        long now = SystemClock.uptimeMillis();
+        if (now - mLastSidePanelToggle < 300)
+            return;
+        mLastSidePanelToggle = now;
+        toggleSidePanel(!mSidePanelShown);
+    }
+
+    public void toggleSidePanel(boolean show) {
+        if (mSidePanel == null)
+            return;
+        if (show)
+            syncSidePanelState();
+        mSidePanelShown = show;
+
+        if (show) {
+            mSidePanel.setVisibility(View.VISIBLE);
+            mSidePanel.post(() -> {
+                applySidePanelLayout();
+                // 起点在屏幕左侧之外，向右滑入到位（translationX: -width → 0）
+                mSidePanel.setTranslationX(-mSidePanel.getWidth());
+                mSidePanel.animate().translationX(0).setDuration(220).start();
+            });
+            mSidePanel.bringToFront();
+        } else {
+            // 向左滑出屏幕（translationX: 0 → -width）
+            mSidePanel.animate().translationX(-mSidePanel.getWidth())
+                    .setDuration(200)
+                    .withEndAction(() -> mSidePanel.setVisibility(View.GONE))
+                    .start();
+            getLorieView().requestFocus();
+        }
+    }
+
     public LorieView getLorieView() {
         return findViewById(R.id.lorieView);
     }
@@ -830,6 +1196,7 @@ public class MainActivity extends AppCompatActivity {
         densityDpi = newConfig.densityDpi;
         applyWindowSettings();
         setTerminalToolbarView();
+        applySidePanelLayout();
     }
 
     @SuppressLint("WrongConstant")
@@ -986,6 +1353,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        // 返回键不再呼出软键盘，改为呼出/收起侧边栏（未连接时保持退出）
+        if (!getLorieView().connected() && !isSidePanelShown()) {
+            finish();
+            return;
+        }
+        toggleSidePanel();
     }
 
     private static float getSystemDimenFloat(String name, float fallback) {
